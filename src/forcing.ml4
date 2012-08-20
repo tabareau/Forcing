@@ -338,7 +338,13 @@ module Forcing(F : ForcingCond) = struct
   let mk_cond_prod = mk_cond_abs mkProd
   let mk_var_prod = mk_var_abs mkProd
   let mk_cond_lam = mk_cond_abs mkLambda
-  let mk_var_lam = mk_var_abs mkLambda
+
+  let mk_var_lam na (s, t') cond b sigma =
+    let interpt' = interp (s, t') cond sigma in
+    let sigma' = (Name na, (s, t'), Some (cond sigma)) :: sigma in
+    let s', b' = b sigma' in
+      s', mkLambda (Name na, snd interpt', b')
+
   let mk_lam = mk_abs mkLambda
 
   let subpt p = 
@@ -540,17 +546,13 @@ module Forcing(F : ForcingCond) = struct
 	in prod
 
       | Lambda (na, t, u) -> 
-	let l sigma =
 	  let na = if na = Anonymous then next_anon () else out_name na in
 	  let qn = next_q () in
-	  let t' = trans t (mkRel 1) sigma in
-	  let term =
 	    mk_cond_lam qn (mk_appc coq_subp [pc])
-	      (mk_var_lam na (interp t' (mk_var qn) sigma) (mk_var qn)
-		 (trans u (mkRel 2)))
-	  in term sigma
-	in l
-
+	      (fun sigma -> 
+		 let t' = trans t (mk_var qn sigma) sigma in
+		   mk_var_lam na t' (mk_var qn)
+		     (fun sigma -> trans u (mk_var qn sigma) sigma) sigma)
 	  
       | Rel n -> 
 	(fun sigma -> 
